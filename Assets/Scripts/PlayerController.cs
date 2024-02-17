@@ -1,3 +1,4 @@
+using Cinemachine;
 using FishNet.Object;
 using UnityEngine;
 
@@ -10,18 +11,16 @@ namespace CryingOnion.MultiplayerTest
 
         [field: SerializeField] public float RunningSpeed { get; private set; } = 11.5f;
         [field: SerializeField] public float JumpSpeed { get; private set; } = 8.0f;
-        [field: SerializeField] public float Gravity { get; private set; } = 20.0f;
+        [field: SerializeField] public float GravityIntensity { get; private set; } = 20.0f;
         [field: SerializeField] public float LookSpeed { get; private set; } = 2.0f;
         [field: SerializeField] public float LookXLimit { get; private set; } = 45.0f;
         
         private CharacterController characterController;
         private Vector3 moveDirection = Vector3.zero;
-        private float rotationX = 0;
 
-        [HideInInspector] public bool canMove = true;
-
-        [SerializeField] private float cameraYOffset = .4f;
-        private Camera ownerCamera;
+        private CinemachineFreeLook freeLookCamera;
+        private Camera mainCamera;
+        private Vector3 lastLookDir;
 
         [Header("Animator Setup")]
         [SerializeField] private Animator animator;
@@ -39,10 +38,10 @@ namespace CryingOnion.MultiplayerTest
             
             if (base.IsOwner)
             {
-                ownerCamera = Camera.main;
-                ownerCamera.transform.position = new Vector3(transform.position.x, transform.position.y + cameraYOffset,
-                    transform.position.z);
-                ownerCamera.transform.SetParent(transform);
+                mainCamera = Camera.main;
+                freeLookCamera = FindObjectOfType<CinemachineFreeLook>();
+                freeLookCamera.Follow = transform;
+                freeLookCamera.LookAt = transform;
             }
             else
             {
@@ -52,7 +51,9 @@ namespace CryingOnion.MultiplayerTest
 
         private void Start()
         {
+            mainCamera = Camera.main;
             characterController = GetComponent<CharacterController>();
+            lastLookDir = transform.forward;
 
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -61,33 +62,31 @@ namespace CryingOnion.MultiplayerTest
         private void Update()
         {
             bool isRunning = Input.GetKey(KeyCode.LeftShift);
+            
+            if (mainCamera != null)
+            {
+                Vector3 forward = Vector3.ProjectOnPlane(mainCamera.transform.forward, Vector3.up);
+                Vector3 right = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up);
 
-            Vector3 forward = transform.TransformDirection(Vector3.forward);
-            Vector3 right = transform.TransformDirection(Vector3.right);
+                float curSpeedX = (isRunning ? RunningSpeed : WalkingSpeed) * Input.GetAxis("Horizontal");
+                float curSpeedY = (isRunning ? RunningSpeed : WalkingSpeed) * Input.GetAxis("Vertical");
 
-            float curSpeedX = canMove ? (isRunning ? RunningSpeed : WalkingSpeed) * Input.GetAxis("Vertical") : 0;
-            float curSpeedY = canMove ? (isRunning ? RunningSpeed : WalkingSpeed) * Input.GetAxis("Horizontal") : 0;
+                Vector3 direction = right * curSpeedX + forward * curSpeedY;
+                
+                if (direction.sqrMagnitude > 0)
+                    lastLookDir = direction.normalized;
+                
+                moveDirection = new Vector3(direction.x, moveDirection.y, direction.z);
+            }
 
-            float movementDirectionY = moveDirection.y;
-            moveDirection = (forward * curSpeedX) + (right * curSpeedY);
-
-            if (Input.GetButton("Jump") && canMove && characterController.isGrounded)
+            if (Input.GetButton("Jump") && characterController.isGrounded)
                 moveDirection.y = JumpSpeed;
-            else
-                moveDirection.y = movementDirectionY;
 
             if (!characterController.isGrounded)
-                moveDirection.y -= Gravity * Time.deltaTime;
-
+                moveDirection.y -= GravityIntensity * Time.deltaTime;
+            
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(lastLookDir), 10.0f);
             characterController.Move(moveDirection * Time.deltaTime);
-
-            if (canMove && ownerCamera != null)
-            {
-                rotationX -= Input.GetAxis("Mouse Y") * LookSpeed;
-                rotationX = Mathf.Clamp(rotationX, -LookXLimit, LookXLimit);
-                ownerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
-                transform.rotation *= Quaternion.Euler(0, Input.GetAxis("Mouse X") * LookSpeed, 0);
-            }
         }
     }
 }
