@@ -113,17 +113,26 @@ namespace CryingOnion.MultiplayerTest
 
             characterController.enabled = (base.IsServerStarted || base.IsOwner);
 
-            if (base.IsOwner)
-            {
-                mainCamera = Camera.main;
-                lastLookDir = transform.forward;
-                freeLookCamera = FindObjectOfType<CinemachineFreeLook>();
-                freeLookCamera.Follow = cameraTarget;
-                freeLookCamera.LookAt = cameraTarget;
+            if (!base.IsOwner) return;
+            
+            mainCamera = Camera.main;
+            lastLookDir = transform.forward;
+            freeLookCamera ??= FindObjectOfType<CinemachineFreeLook>();
+            freeLookCamera.Follow = cameraTarget;
+            freeLookCamera.LookAt = cameraTarget;
 
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-            }
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+        public override void OnStopClient()
+        {
+            if(!base.IsOwner) return;
+            
+            freeLookCamera.Follow = cameraTarget;
+            freeLookCamera.LookAt = cameraTarget;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         private void OnDestroy()
@@ -164,12 +173,17 @@ namespace CryingOnion.MultiplayerTest
                  * In this section I calculate the direction in which the player is going to move, and I make sure that the magnitude of the direction is not greater than 1,
                  * since diagonal movements have a magnitude greater than 1.
                  */
-                direction = Vector3.ClampMagnitude(
-                    right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical"), 1.0f);
+                direction = Vector3.ClampMagnitude(right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical"), 1.0f);
             }
 
             // The necessary data is created to replicate the character's movement
             md = new MoveData(direction, Input.GetButton("Jump"), Input.GetKey(KeyCode.LeftShift));
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
         }
 
         /// <summary>
