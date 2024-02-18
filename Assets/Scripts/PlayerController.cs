@@ -1,4 +1,3 @@
-using System;
 using Cinemachine;
 using FishNet;
 using FishNet.Object;
@@ -11,38 +10,36 @@ namespace CryingOnion.MultiplayerTest
 {
     public class PlayerController : NetworkBehaviour
     {
+        private const float RUNNING_MULTIPLIER = 1.25f;
+        private readonly int isGroundedHash = Animator.StringToHash("IS_GROUNDED");
+        private readonly int velocityHash = Animator.StringToHash("VELOCITY");
+        private readonly int textureProperty = Shader.PropertyToID("_MainTex");
+        private readonly SyncVar<int> playerId = new();
+        
         [field: Header("Base Setup")]
-        [field: SerializeField]
-        public float WalkingSpeed { get; private set; } = 7.5f;
-
-        [field: SerializeField] public float RunningSpeed { get; private set; } = 11.5f;
+        [field: SerializeField] public float MoveSpeed { get; private set; } = 7.5f;
         [field: SerializeField] public float JumpSpeed { get; private set; } = 8.0f;
         [field: SerializeField] public float GravityIntensity { get; private set; } = 20.0f;
-        [field: SerializeField] public float LookSpeed { get; private set; } = 2.0f;
-        [field: SerializeField] public float LookXLimit { get; private set; } = 45.0f;
 
-        [Header("Animator Setup")] [SerializeField]
-        private Animator animator;
+        [Header("Animator Setup")]
+        [SerializeField] private Animator animator;
 
-        [Header("Skins Setup")] [SerializeField]
-        private Texture[] skinsTextures;
-
+        [Header("Skins Setup")]
+        [Tooltip("The skins that will be used to distinguish the players are decided by the OwnerId")]
+        [SerializeField] private Texture[] skinsTextures;
         [SerializeField] private Renderer playerRenderer;
 
-        [Header("Camera Target Setup")] [SerializeField]
-        private Transform cameraTarget;
+        [Header("Camera Target Setup")]
+        [Tooltip("This is the point that the client-side camera will follow.")]
+        [SerializeField] private Transform cameraTarget;
 
         private CharacterController characterController;
         private Vector3 moveDirection = Vector3.zero;
+        private Vector3 currentVelocity = Vector3.zero;
 
         private CinemachineFreeLook freeLookCamera;
         private Camera mainCamera;
         private Vector3 lastLookDir;
-
-        private readonly int textureProperty = Shader.PropertyToID("_MainTex");
-
-
-        private readonly SyncVar<int> playerId = new();
 
         public struct MoveData : IReplicateData
         {
@@ -60,9 +57,7 @@ namespace CryingOnion.MultiplayerTest
 
             private uint _tick;
 
-            public void Dispose()
-            {
-            }
+            public void Dispose() { }
 
             public uint GetTick() => _tick;
             public void SetTick(uint value) => _tick = value;
@@ -82,9 +77,7 @@ namespace CryingOnion.MultiplayerTest
 
             private uint _tick;
 
-            public void Dispose()
-            {
-            }
+            public void Dispose() { }
 
             public uint GetTick() => _tick;
             public void SetTick(uint value) => _tick = value;
@@ -99,8 +92,10 @@ namespace CryingOnion.MultiplayerTest
         public override void OnStartServer()
         {
             base.OnStartServer();
-            playerId.Value = OwnerId;
             lastLookDir = transform.forward;
+            
+            // In this section we save a synchronization variable so that both the server and the clients can see specific skins on each player.
+            playerId.Value = OwnerId;
             playerRenderer.material.SetTexture(textureProperty, skinsTextures[playerId.Value % skinsTextures.Length]);
         }
 
@@ -108,6 +103,7 @@ namespace CryingOnion.MultiplayerTest
         {
             base.OnStartClient();
 
+            // The corresponding skin is chosen for the client's character.
             playerRenderer.material.SetTexture(textureProperty, skinsTextures[playerId.Value % skinsTextures.Length]);
 
             characterController.enabled = (base.IsServerStarted || base.IsOwner);
@@ -124,7 +120,7 @@ namespace CryingOnion.MultiplayerTest
                 Cursor.visible = false;
             }
         }
-
+        
         private void OnDestroy()
         {
             if (InstanceFinder.TimeManager != null)
@@ -153,41 +149,66 @@ namespace CryingOnion.MultiplayerTest
             md = default;
             Vector3 direction = Vector3.zero;
 
+            // The direction in which the character should move is calculated using the camera orientation as a reference and that direction is projected on a plane.
             if (mainCamera != null)
             {
                 Vector3 forward = Vector3.ProjectOnPlane(mainCamera.transform.forward, Vector3.up);
                 Vector3 right = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up);
 
-                direction = right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical");
+                /*
+                 * In this section I calculate the direction in which the player is going to move, and I make sure that the magnitude of the direction is not greater than 1,
+                 * since diagonal movements have a magnitude greater than 1.
+                */ 
+                direction = Vector3.ClampMagnitude(right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical"), 1.0f);
             }
 
+            // The necessary data is created to replicate the character's movement
             md = new MoveData(direction, Input.GetButton("Jump"), Input.GetKey(KeyCode.LeftShift));
         }
 
+        /// <summary>
+        /// This function is responsible for making the client's prediction.
+        /// </summary>
         [Replicate]
         private void Move(MoveData md, bool asServer, Channel channel = Channel.Unreliable, bool replaying = false)
         {
             if (asServer)
             {
                 float delta = (float)base.TimeManager.TickDelta;
-                Vector3 movDir = md.MoveDirection * (md.Running ? RunningSpeed : WalkingSpeed);
+                float strategySpeed = md.Running ? MoveSpeed * RUNNING_MULTIPLIER : MoveSpeed;
+                Vector3 targetVelocity = md.MoveDirection * strategySpeed;
+                bool isGrounded = characterController.isGrounded;
 
-                if (movDir.sqrMagnitude > 0)
-                    lastLookDir = movDir.normalized;
+                // This section is responsible for reaching the desired speed gradually.
+                currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, 5.0f);
+                
+                // It is analyzed if the magnitude of the movement to be made is greater than 0, with this we change the orientation of the player.
+                if (currentVelocity.sqrMagnitude > 0)
+                    lastLookDir = currentVelocity.normalized;
 
-                moveDirection = new Vector3(movDir.x, moveDirection.y, movDir.z);
+                moveDirection = new Vector3(currentVelocity.x, moveDirection.y, currentVelocity.z);
 
-                if (md.Jump && characterController.isGrounded)
+                if (md.Jump && isGrounded)
+                {
+                    isGrounded = false;
                     moveDirection.y = JumpSpeed;
+                }
 
-                if (!characterController.isGrounded)
+                if (!isGrounded)
                     moveDirection.y -= GravityIntensity * delta;
 
                 transform.rotation = Quaternion.LookRotation(lastLookDir, Vector3.up);
                 characterController.Move(moveDirection * delta);
+                
+                // The corresponding animations of the player are triggered, these are automatically synchronized thanks to the NetworkAnimator component.
+                animator.SetBool(isGroundedHash, isGrounded);
+                animator.SetFloat(velocityHash, currentVelocity.magnitude / MoveSpeed);
             }
         }
 
+        /// <summary>
+        /// This function is responsible for Reconciling with the server.
+        /// </summary>
         [Reconcile]
         private void Reconciliation(ReconcileData rd, bool asServer, Channel channel = Channel.Unreliable)
         {
