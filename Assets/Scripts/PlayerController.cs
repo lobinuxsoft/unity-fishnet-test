@@ -15,18 +15,19 @@ namespace CryingOnion.MultiplayerTest
         private readonly int velocityHash = Animator.StringToHash("VELOCITY");
         private readonly int textureProperty = Shader.PropertyToID("_MainTex");
         private readonly SyncVar<int> playerId = new();
-        
+
         [field: Header("Base Setup")]
         [field: SerializeField] public float MoveSpeed { get; private set; } = 7.5f;
+
         [field: SerializeField] public float JumpSpeed { get; private set; } = 8.0f;
         [field: SerializeField] public float GravityIntensity { get; private set; } = 20.0f;
 
-        [Header("Animator Setup")]
-        [SerializeField] private Animator animator;
+        [Header("Animator Setup")] [SerializeField] private Animator animator;
 
         [Header("Skins Setup")]
         [Tooltip("The skins that will be used to distinguish the players are decided by the OwnerId")]
         [SerializeField] private Texture[] skinsTextures;
+
         [SerializeField] private Renderer playerRenderer;
 
         [Header("Camera Target Setup")]
@@ -57,7 +58,9 @@ namespace CryingOnion.MultiplayerTest
 
             private uint _tick;
 
-            public void Dispose() { }
+            public void Dispose()
+            {
+            }
 
             public uint GetTick() => _tick;
             public void SetTick(uint value) => _tick = value;
@@ -77,7 +80,9 @@ namespace CryingOnion.MultiplayerTest
 
             private uint _tick;
 
-            public void Dispose() { }
+            public void Dispose()
+            {
+            }
 
             public uint GetTick() => _tick;
             public void SetTick(uint value) => _tick = value;
@@ -93,7 +98,7 @@ namespace CryingOnion.MultiplayerTest
         {
             base.OnStartServer();
             lastLookDir = transform.forward;
-            
+
             // In this section we save a synchronization variable so that both the server and the clients can see specific skins on each player.
             playerId.Value = OwnerId;
             playerRenderer.material.SetTexture(textureProperty, skinsTextures[playerId.Value % skinsTextures.Length]);
@@ -115,12 +120,12 @@ namespace CryingOnion.MultiplayerTest
                 freeLookCamera = FindObjectOfType<CinemachineFreeLook>();
                 freeLookCamera.Follow = cameraTarget;
                 freeLookCamera.LookAt = cameraTarget;
-                
+
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
             }
         }
-        
+
         private void OnDestroy()
         {
             if (InstanceFinder.TimeManager != null)
@@ -158,8 +163,9 @@ namespace CryingOnion.MultiplayerTest
                 /*
                  * In this section I calculate the direction in which the player is going to move, and I make sure that the magnitude of the direction is not greater than 1,
                  * since diagonal movements have a magnitude greater than 1.
-                */ 
-                direction = Vector3.ClampMagnitude(right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical"), 1.0f);
+                 */
+                direction = Vector3.ClampMagnitude(
+                    right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical"), 1.0f);
             }
 
             // The necessary data is created to replicate the character's movement
@@ -172,36 +178,32 @@ namespace CryingOnion.MultiplayerTest
         [Replicate]
         private void Move(MoveData md, bool asServer, Channel channel = Channel.Unreliable, bool replaying = false)
         {
-            if (asServer)
+            if (asServer || IsHostInitialized)
             {
                 float delta = (float)base.TimeManager.TickDelta;
                 float strategySpeed = md.Running ? MoveSpeed * RUNNING_MULTIPLIER : MoveSpeed;
                 Vector3 targetVelocity = md.MoveDirection * strategySpeed;
-                bool isGrounded = characterController.isGrounded;
 
                 // This section is responsible for reaching the desired speed gradually.
                 currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, 5.0f);
-                
+
                 // It is analyzed if the magnitude of the movement to be made is greater than 0, with this we change the orientation of the player.
                 if (currentVelocity.sqrMagnitude > 0)
                     lastLookDir = currentVelocity.normalized;
 
                 moveDirection = new Vector3(currentVelocity.x, moveDirection.y, currentVelocity.z);
 
-                if (md.Jump && isGrounded)
-                {
-                    isGrounded = false;
+                if (md.Jump && characterController.isGrounded)
                     moveDirection.y = JumpSpeed;
-                }
 
-                if (!isGrounded)
+                if (!characterController.isGrounded)
                     moveDirection.y -= GravityIntensity * delta;
 
                 transform.rotation = Quaternion.LookRotation(lastLookDir, Vector3.up);
                 characterController.Move(moveDirection * delta);
-                
+
                 // The corresponding animations of the player are triggered, these are automatically synchronized thanks to the NetworkAnimator component.
-                animator.SetBool(isGroundedHash, isGrounded);
+                animator.SetBool(isGroundedHash, characterController.isGrounded);
                 animator.SetFloat(velocityHash, currentVelocity.magnitude / MoveSpeed);
             }
         }
