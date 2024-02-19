@@ -13,6 +13,8 @@ namespace CryingOnion.MultiplayerTest
         private const float RUNNING_MULTIPLIER = 1.25f;
         private readonly int isGroundedHash = Animator.StringToHash("IS_GROUNDED");
         private readonly int velocityHash = Animator.StringToHash("VELOCITY");
+        private readonly int attackingHash = Animator.StringToHash("ATTACKING");
+        private readonly int attackTimeHash = Animator.StringToHash("ATTACK_TIME");
         private readonly int textureProperty = Shader.PropertyToID("_MainTex");
         private readonly SyncVar<int> playerId = new();
 
@@ -47,12 +49,14 @@ namespace CryingOnion.MultiplayerTest
             public Vector3 MoveDirection;
             public bool Jump;
             public bool Running;
+            public bool Attacking;
 
-            public MoveData(Vector3 moveDirection, bool jump, bool running)
+            public MoveData(Vector3 moveDirection, bool jump, bool running, bool attacking)
             {
                 MoveDirection = moveDirection;
                 Jump = jump;
                 Running = running;
+                Attacking = attacking;
                 _tick = 0;
             }
 
@@ -177,7 +181,7 @@ namespace CryingOnion.MultiplayerTest
             }
 
             // The necessary data is created to replicate the character's movement
-            md = new MoveData(direction, Input.GetButton("Jump"), Input.GetKey(KeyCode.LeftShift));
+            md = new MoveData(direction, Input.GetButton("Jump"), Input.GetKey(KeyCode.LeftShift), Input.GetButton("Fire1"));
 
             if (Input.GetKeyDown(KeyCode.Escape))
             {
@@ -205,7 +209,7 @@ namespace CryingOnion.MultiplayerTest
                 if (currentVelocity.sqrMagnitude > 0)
                     lastLookDir = currentVelocity.normalized;
 
-                moveDirection = new Vector3(currentVelocity.x, moveDirection.y, currentVelocity.z);
+                moveDirection =  md.Attacking && characterController.isGrounded ? new Vector3(0, moveDirection.y, 0) : new Vector3(currentVelocity.x, moveDirection.y, currentVelocity.z);
 
                 if (md.Jump && characterController.isGrounded)
                     moveDirection.y = JumpSpeed;
@@ -218,7 +222,8 @@ namespace CryingOnion.MultiplayerTest
 
                 // The corresponding animations of the player are triggered, these are automatically synchronized thanks to the NetworkAnimator component.
                 animator.SetBool(isGroundedHash, characterController.isGrounded);
-                animator.SetFloat(velocityHash, currentVelocity.magnitude / MoveSpeed);
+                animator.SetFloat(velocityHash, md.Attacking ? 0 : currentVelocity.magnitude / MoveSpeed);
+                animator.SetBool(attackingHash, md.Attacking);
             }
         }
 

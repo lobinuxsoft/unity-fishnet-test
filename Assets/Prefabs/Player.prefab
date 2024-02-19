@@ -83,8 +83,16 @@ MonoBehaviour:
   <GravityIntensity>k__BackingField: 20
   animator: {fileID: 3904572166655124851}
   skinsTextures:
+  - {fileID: 2800000, guid: b8708344d9b68a84f9c6dd9aea467706, type: 3}
+  - {fileID: 2800000, guid: 19234c349eaf4364fb1db67287a02f02, type: 3}
   - {fileID: 2800000, guid: e2e9214ce695eb84d98a40caf52e6017, type: 3}
   - {fileID: 2800000, guid: d947697459197df4e988dccc28c57603, type: 3}
+  - {fileID: 2800000, guid: a8645dece5a6a4642a857c7a360dd12e, type: 3}
+  - {fileID: 2800000, guid: 5fcf385ff21782f4ca544d06a8512caf, type: 3}
+  - {fileID: 2800000, guid: dd9d85fe4f841b74eb4ff8edc25b1fc4, type: 3}
+  - {fileID: 2800000, guid: e91bc747bf43bba408fa5e11e7124a76, type: 3}
+  - {fileID: 2800000, guid: 87fcd115f487b8249b745729187a1e5a, type: 3}
+  - {fileID: 2800000, guid: 0cae1ddec5420334c9189545540e4ef4, type: 3}
   - {fileID: 2800000, guid: c456c4c369b4e3b4a8b092ec15c776b4, type: 3}
   - {fileID: 2800000, guid: f291b2a3de289f84bba735cbaa5a2344, type: 3}
   playerRenderer: {fileID: 4236674306750704072}
