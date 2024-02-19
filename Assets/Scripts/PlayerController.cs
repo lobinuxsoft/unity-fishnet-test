@@ -1,5 +1,8 @@
 using Cinemachine;
 using FishNet;
+using FishNet.Component.ColliderRollback;
+using FishNet.Managing;
+using FishNet.Managing.Timing;
 using FishNet.Object;
 using FishNet.Object.Prediction;
 using FishNet.Object.Synchronizing;
@@ -19,17 +22,17 @@ namespace CryingOnion.MultiplayerTest
         private readonly SyncVar<int> playerId = new();
 
         [field: Header("Base Setup")]
+        [field: SerializeField] public LayerMask AttackLayerMask { get; private set; }
         [field: SerializeField] public float MoveSpeed { get; private set; } = 7.5f;
-
         [field: SerializeField] public float JumpSpeed { get; private set; } = 8.0f;
         [field: SerializeField] public float GravityIntensity { get; private set; } = 20.0f;
 
-        [Header("Animator Setup")] [SerializeField] private Animator animator;
+        [Header("Animator Setup")]
+        [SerializeField] private Animator animator;
 
         [Header("Skins Setup")]
         [Tooltip("The skins that will be used to distinguish the players are decided by the OwnerId")]
         [SerializeField] private Texture[] skinsTextures;
-
         [SerializeField] private Renderer playerRenderer;
 
         [Header("Camera Target Setup")]
@@ -152,6 +155,9 @@ namespace CryingOnion.MultiplayerTest
                 Reconciliation(default, false);
                 CheckInput(out MoveData md);
                 Move(md, false);
+                
+                if (TimeManager.Tick % 3 == 0 && animator.GetFloat(attackTimeHash) > 0.5f)
+                    Attack();
             }
 
             if (base.IsServerStarted)
@@ -235,6 +241,36 @@ namespace CryingOnion.MultiplayerTest
         {
             transform.position = rd.Position;
             transform.rotation = rd.Rotation;
+        }
+
+        [Client]
+        private void Attack()
+        {
+            PreciseTick pt = TimeManager.GetPreciseTick(TimeManager.LastPacketTick.Value());
+            ServerAttack(pt);
+        }
+
+        [ServerRpc]
+        private void ServerAttack(PreciseTick pt)
+        {
+            RollbackManager.Rollback(pt, RollbackPhysicsType.Physics, IsOwner);
+            Collider[] colliders = new Collider[10];
+            int amount = Physics.OverlapSphereNonAlloc(transform.position + transform.up * 0.5f, 1f, colliders, AttackLayerMask);
+
+            for (int i = 0; i < amount; i++)
+            {
+                if(colliders[i].TryGetComponent(out PlayerController other))
+                    if (other.OwnerId != OwnerId)
+                        NetworkManager.Log($"Hit Player: {other.OwnerId}");
+            }
+            
+            // if (Physics.SphereCast(transform.position + transform.up * 0.5f, 1f, transform.forward, out RaycastHit hit, 1f))
+            // {
+            //     PlayerController other = hit.transform.GetComponent<PlayerController>();
+            //     NetworkManager.Log($"Hit Player: {other.playerId.Value}");
+            // }
+            
+            RollbackManager.Return();
         }
     }
 }
