@@ -1,3 +1,4 @@
+using System;
 using Cinemachine;
 using FishNet;
 using FishNet.Component.ColliderRollback;
@@ -11,28 +12,26 @@ using UnityEngine;
 
 namespace CryingOnion.MultiplayerTest
 {
-    public class PlayerController : NetworkBehaviour
+    public class NetworkPlayerController : NetworkBehaviour
     {
-        private const float RUNNING_MULTIPLIER = 1.25f;
         private readonly int isGroundedHash = Animator.StringToHash("IS_GROUNDED");
         private readonly int velocityHash = Animator.StringToHash("VELOCITY");
         private readonly int attackingHash = Animator.StringToHash("ATTACKING");
         private readonly int attackTimeHash = Animator.StringToHash("ATTACK_TIME");
         private readonly int textureProperty = Shader.PropertyToID("_MainTex");
+        
         private readonly SyncVar<int> playerId = new();
-
+        private readonly SyncVar<ushort> playerHealth = new(100);
+        
         [field: Header("Base Setup")]
-        [field: SerializeField] public LayerMask AttackLayerMask { get; private set; }
-        [field: SerializeField] public float MoveSpeed { get; private set; } = 7.5f;
-        [field: SerializeField] public float JumpSpeed { get; private set; } = 8.0f;
-        [field: SerializeField] public float GravityIntensity { get; private set; } = 20.0f;
+        [field: SerializeField] public NetworkPlayerConfig NetworkPlayerConfig { get; private set; }
 
         [Header("Animator Setup")]
+        [Tooltip("Necessary reference to the character animator.")]
         [SerializeField] private Animator animator;
 
-        [Header("Skins Setup")]
-        [Tooltip("The skins that will be used to distinguish the players are decided by the OwnerId")]
-        [SerializeField] private Texture[] skinsTextures;
+        [Header("Player Graphics Setup")]
+        [Tooltip("Necessary reference so that the character can change skin.")]
         [SerializeField] private Renderer playerRenderer;
 
         [Header("Camera Target Setup")]
@@ -47,54 +46,6 @@ namespace CryingOnion.MultiplayerTest
         private Camera mainCamera;
         private Vector3 lastLookDir;
 
-        public struct MoveData : IReplicateData
-        {
-            public Vector3 MoveDirection;
-            public bool Jump;
-            public bool Running;
-            public bool Attacking;
-
-            public MoveData(Vector3 moveDirection, bool jump, bool running, bool attacking)
-            {
-                MoveDirection = moveDirection;
-                Jump = jump;
-                Running = running;
-                Attacking = attacking;
-                _tick = 0;
-            }
-
-            private uint _tick;
-
-            public void Dispose()
-            {
-            }
-
-            public uint GetTick() => _tick;
-            public void SetTick(uint value) => _tick = value;
-        }
-
-        public struct ReconcileData : IReconcileData
-        {
-            public Vector3 Position;
-            public Quaternion Rotation;
-
-            public ReconcileData(Vector3 position, Quaternion rotation)
-            {
-                Position = position;
-                Rotation = rotation;
-                _tick = 0;
-            }
-
-            private uint _tick;
-
-            public void Dispose()
-            {
-            }
-
-            public uint GetTick() => _tick;
-            public void SetTick(uint value) => _tick = value;
-        }
-
         private void Awake()
         {
             InstanceFinder.TimeManager.OnTick += OnTimeManagerTick;
@@ -108,7 +59,7 @@ namespace CryingOnion.MultiplayerTest
 
             // In this section we save a synchronization variable so that both the server and the clients can see specific skins on each player.
             playerId.Value = OwnerId;
-            playerRenderer.material.SetTexture(textureProperty, skinsTextures[playerId.Value % skinsTextures.Length]);
+            playerRenderer.material.SetTexture(textureProperty, NetworkPlayerConfig.SkinsTextures[playerId.Value % NetworkPlayerConfig.SkinsTextures.Length]);
         }
 
         public override void OnStartClient()
@@ -116,7 +67,7 @@ namespace CryingOnion.MultiplayerTest
             base.OnStartClient();
 
             // The corresponding skin is chosen for the client's character.
-            playerRenderer.material.SetTexture(textureProperty, skinsTextures[playerId.Value % skinsTextures.Length]);
+            playerRenderer.material.SetTexture(textureProperty, NetworkPlayerConfig.SkinsTextures[playerId.Value % NetworkPlayerConfig.SkinsTextures.Length]);
 
             characterController.enabled = (base.IsServerStarted || base.IsOwner);
 
@@ -158,6 +109,9 @@ namespace CryingOnion.MultiplayerTest
                 
                 if (TimeManager.Tick % 3 == 0 && animator.GetFloat(attackTimeHash) > 0.5f)
                     Attack();
+
+                if (playerHealth.Value == ushort.MinValue)
+                    NetworkManager.ClientManager.StopConnection();
             }
 
             if (base.IsServerStarted)
@@ -205,7 +159,7 @@ namespace CryingOnion.MultiplayerTest
             if (asServer || IsHostInitialized)
             {
                 float delta = (float)base.TimeManager.TickDelta;
-                float strategySpeed = md.Running ? MoveSpeed * RUNNING_MULTIPLIER : MoveSpeed;
+                float strategySpeed = md.Running ? NetworkPlayerConfig.MoveSpeed * NetworkPlayerConfig.RunningMultiplier : NetworkPlayerConfig.MoveSpeed;
                 Vector3 targetVelocity = md.MoveDirection * strategySpeed;
 
                 // This section is responsible for reaching the desired speed gradually.
@@ -218,17 +172,17 @@ namespace CryingOnion.MultiplayerTest
                 moveDirection =  md.Attacking && characterController.isGrounded ? new Vector3(0, moveDirection.y, 0) : new Vector3(currentVelocity.x, moveDirection.y, currentVelocity.z);
 
                 if (md.Jump && characterController.isGrounded)
-                    moveDirection.y = JumpSpeed;
+                    moveDirection.y = NetworkPlayerConfig.JumpSpeed;
 
                 if (!characterController.isGrounded)
-                    moveDirection.y -= GravityIntensity * delta;
+                    moveDirection.y -= NetworkPlayerConfig.GravityIntensity * delta;
 
                 transform.rotation = Quaternion.LookRotation(lastLookDir, Vector3.up);
                 characterController.Move(moveDirection * delta);
 
                 // The corresponding animations of the player are triggered, these are automatically synchronized thanks to the NetworkAnimator component.
                 animator.SetBool(isGroundedHash, characterController.isGrounded);
-                animator.SetFloat(velocityHash, md.Attacking ? 0 : currentVelocity.magnitude / MoveSpeed);
+                animator.SetFloat(velocityHash, md.Attacking ? 0 : currentVelocity.magnitude / NetworkPlayerConfig.MoveSpeed);
                 animator.SetBool(attackingHash, md.Attacking);
             }
         }
@@ -255,20 +209,17 @@ namespace CryingOnion.MultiplayerTest
         {
             RollbackManager.Rollback(pt, RollbackPhysicsType.Physics, IsOwner);
             Collider[] colliders = new Collider[10];
-            int amount = Physics.OverlapSphereNonAlloc(transform.position + transform.up * 0.5f, 1f, colliders, AttackLayerMask);
+            int amount = Physics.OverlapSphereNonAlloc(transform.position + transform.up * 0.5f, 1f, colliders, NetworkPlayerConfig.AttackLayerMask);
 
             for (int i = 0; i < amount; i++)
             {
-                if(colliders[i].TryGetComponent(out PlayerController other))
+                if(colliders[i].TryGetComponent(out NetworkPlayerController other))
                     if (other.OwnerId != OwnerId)
-                        NetworkManager.Log($"Hit Player: {other.OwnerId}");
+                    {
+                        other.playerHealth.Value -= 10;
+                        NetworkManager.Log($"<b>Client {other.OwnerId}</b> <color=green>Health: {other.playerHealth.Value} / {100}</color> -> <color=blue>% {100 * (other.playerHealth.Value / 100.0f):000}</color>");
+                    }
             }
-            
-            // if (Physics.SphereCast(transform.position + transform.up * 0.5f, 1f, transform.forward, out RaycastHit hit, 1f))
-            // {
-            //     PlayerController other = hit.transform.GetComponent<PlayerController>();
-            //     NetworkManager.Log($"Hit Player: {other.playerId.Value}");
-            // }
             
             RollbackManager.Return();
         }

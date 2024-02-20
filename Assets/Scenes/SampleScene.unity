@@ -566,7 +566,7 @@ MonoBehaviour:
   secret: lobby
   port: 8888
   searchTimeout: 10
-  automatic: 1
+  automatic: 0
 --- !u!114 &280739667
 MonoBehaviour:
   m_ObjectHideFlags: 0

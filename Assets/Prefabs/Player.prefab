@@ -79,26 +79,8 @@ MonoBehaviour:
   _componentIndexCache: 0
   _addedNetworkObject: {fileID: 5559270952282271745}
   _networkObjectCache: {fileID: 5559270952282271745}
-  <AttackLayerMask>k__BackingField:
-    serializedVersion: 2
-    m_Bits: 8
-  <MoveSpeed>k__BackingField: 7.5
-  <JumpSpeed>k__BackingField: 8
-  <GravityIntensity>k__BackingField: 20
+  <NetworkPlayerConfig>k__BackingField: {fileID: 11400000, guid: 7235b61debdb95f479fb9f6ef717495a, type: 2}
   animator: {fileID: 8505484411372754836}
-  skinsTextures:
-  - {fileID: 2800000, guid: b8708344d9b68a84f9c6dd9aea467706, type: 3}
-  - {fileID: 2800000, guid: 19234c349eaf4364fb1db67287a02f02, type: 3}
-  - {fileID: 2800000, guid: e2e9214ce695eb84d98a40caf52e6017, type: 3}
-  - {fileID: 2800000, guid: d947697459197df4e988dccc28c57603, type: 3}
-  - {fileID: 2800000, guid: a8645dece5a6a4642a857c7a360dd12e, type: 3}
-  - {fileID: 2800000, guid: 5fcf385ff21782f4ca544d06a8512caf, type: 3}
-  - {fileID: 2800000, guid: dd9d85fe4f841b74eb4ff8edc25b1fc4, type: 3}
-  - {fileID: 2800000, guid: e91bc747bf43bba408fa5e11e7124a76, type: 3}
-  - {fileID: 2800000, guid: 87fcd115f487b8249b745729187a1e5a, type: 3}
-  - {fileID: 2800000, guid: 0cae1ddec5420334c9189545540e4ef4, type: 3}
-  - {fileID: 2800000, guid: c456c4c369b4e3b4a8b092ec15c776b4, type: 3}
-  - {fileID: 2800000, guid: f291b2a3de289f84bba735cbaa5a2344, type: 3}
   playerRenderer: {fileID: 8857998160166099759}
   cameraTarget: {fileID: 3326188520166759238}
 --- !u!114 &5559270952282271745
@@ -120,6 +102,7 @@ MonoBehaviour:
   - {fileID: 169184144191872046}
   - {fileID: 1738644955459279541}
   - {fileID: 4806149920487547247}
+  - {fileID: 9163473934655158137}
   - {fileID: 6758715718858637501}
   <SerializedRootNetworkBehaviour>k__BackingField: {fileID: 0}
   <NestedRootNetworkBehaviours>k__BackingField: []
@@ -237,9 +220,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01a271dd97d875347b0cea860df29a9d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _componentIndexCache: 255
+  _componentIndexCache: 3
   _addedNetworkObject: {fileID: 5559270952282271745}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 5559270952282271745}
   _boundingBox: 0
   _physicsType: 1
   _boundingBoxSize: {x: 3, y: 3, z: 3}
@@ -302,7 +285,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e8cac635f24954048aad3a6ff9110beb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _componentIndexCache: 3
+  _componentIndexCache: 4
   _addedNetworkObject: {fileID: 5559270952282271745}
   _networkObjectCache: {fileID: 5559270952282271745}
   IgnoredParameters: []
