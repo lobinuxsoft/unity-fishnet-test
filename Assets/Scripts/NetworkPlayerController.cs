@@ -1,4 +1,3 @@
-using System;
 using Cinemachine;
 using FishNet;
 using FishNet.Component.ColliderRollback;
@@ -18,25 +17,21 @@ namespace CryingOnion.MultiplayerTest
         private readonly int velocityHash = Animator.StringToHash("VELOCITY");
         private readonly int attackingHash = Animator.StringToHash("ATTACKING");
         private readonly int attackTimeHash = Animator.StringToHash("ATTACK_TIME");
-        private readonly int textureProperty = Shader.PropertyToID("_MainTex");
-        
-        private readonly SyncVar<int> playerId = new();
+        private readonly int textureProperty = Shader.PropertyToID("_BaseMap");
+
         private readonly SyncVar<ushort> playerHealth = new(100);
-        
-        [field: Header("Base Setup")]
-        [field: SerializeField] public NetworkPlayerConfig NetworkPlayerConfig { get; private set; }
 
-        [Header("Animator Setup")]
-        [Tooltip("Necessary reference to the character animator.")]
-        [SerializeField] private Animator animator;
+        [field: Header("Base Setup")] [field: SerializeField]
+        public NetworkPlayerConfig NetworkPlayerConfig { get; private set; }
 
-        [Header("Player Graphics Setup")]
-        [Tooltip("Necessary reference so that the character can change skin.")]
-        [SerializeField] private Renderer playerRenderer;
+        [Header("Animator Setup")] [Tooltip("Necessary reference to the character animator.")] [SerializeField]
+        private Animator animator;
 
-        [Header("Camera Target Setup")]
-        [Tooltip("This is the point that the client-side camera will follow.")]
-        [SerializeField] private Transform cameraTarget;
+        [Header("Player Graphics Setup")] [Tooltip("Necessary reference so that the character can change skin.")] [SerializeField]
+        private Renderer playerRenderer;
+
+        [Header("Camera Target Setup")] [Tooltip("This is the point that the client-side camera will follow.")] [SerializeField]
+        private Transform cameraTarget;
 
         private CharacterController characterController;
         private Vector3 moveDirection = Vector3.zero;
@@ -58,8 +53,7 @@ namespace CryingOnion.MultiplayerTest
             lastLookDir = transform.forward;
 
             // In this section we save a synchronization variable so that both the server and the clients can see specific skins on each player.
-            playerId.Value = OwnerId;
-            playerRenderer.material.SetTexture(textureProperty, NetworkPlayerConfig.SkinsTextures[playerId.Value % NetworkPlayerConfig.SkinsTextures.Length]);
+            playerRenderer.material.SetTexture(textureProperty, NetworkPlayerConfig.SkinsTextures[OwnerId % NetworkPlayerConfig.SkinsTextures.Length]);
         }
 
         public override void OnStartClient()
@@ -67,17 +61,18 @@ namespace CryingOnion.MultiplayerTest
             base.OnStartClient();
 
             // The corresponding skin is chosen for the client's character.
-            playerRenderer.material.SetTexture(textureProperty, NetworkPlayerConfig.SkinsTextures[playerId.Value % NetworkPlayerConfig.SkinsTextures.Length]);
+            playerRenderer.material.SetTexture(textureProperty, NetworkPlayerConfig.SkinsTextures[OwnerId % NetworkPlayerConfig.SkinsTextures.Length]);
 
             characterController.enabled = (base.IsServerStarted || base.IsOwner);
 
             if (!base.IsOwner) return;
-            
+
             mainCamera = Camera.main;
             lastLookDir = transform.forward;
             freeLookCamera ??= FindObjectOfType<CinemachineFreeLook>();
             freeLookCamera.Follow = cameraTarget;
             freeLookCamera.LookAt = cameraTarget;
+            freeLookCamera.enabled = true;
 
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -85,8 +80,8 @@ namespace CryingOnion.MultiplayerTest
 
         public override void OnStopClient()
         {
-            if(!base.IsOwner) return;
-            
+            if (!base.IsOwner) return;
+
             freeLookCamera.Follow = cameraTarget;
             freeLookCamera.LookAt = cameraTarget;
             Cursor.lockState = CursorLockMode.None;
@@ -106,7 +101,7 @@ namespace CryingOnion.MultiplayerTest
                 Reconciliation(default, false);
                 CheckInput(out MoveData md);
                 Move(md, false);
-                
+
                 if (TimeManager.Tick % 3 == 0 && animator.GetFloat(attackTimeHash) > 0.5f)
                     Attack();
 
@@ -169,7 +164,7 @@ namespace CryingOnion.MultiplayerTest
                 if (currentVelocity.sqrMagnitude > 0)
                     lastLookDir = currentVelocity.normalized;
 
-                moveDirection =  md.Attacking && characterController.isGrounded ? new Vector3(0, moveDirection.y, 0) : new Vector3(currentVelocity.x, moveDirection.y, currentVelocity.z);
+                moveDirection = md.Attacking && characterController.isGrounded ? new Vector3(0, moveDirection.y, 0) : new Vector3(currentVelocity.x, moveDirection.y, currentVelocity.z);
 
                 if (md.Jump && characterController.isGrounded)
                     moveDirection.y = NetworkPlayerConfig.JumpSpeed;
@@ -213,14 +208,14 @@ namespace CryingOnion.MultiplayerTest
 
             for (int i = 0; i < amount; i++)
             {
-                if(colliders[i].TryGetComponent(out NetworkPlayerController other))
+                if (colliders[i].TryGetComponent(out NetworkPlayerController other))
                     if (other.OwnerId != OwnerId)
                     {
                         other.playerHealth.Value -= 10;
                         NetworkManager.Log($"<b>Client {other.OwnerId}</b> <color=green>Health: {other.playerHealth.Value} / {100}</color> -> <color=blue>% {100 * (other.playerHealth.Value / 100.0f):000}</color>");
                     }
             }
-            
+
             RollbackManager.Return();
         }
     }
