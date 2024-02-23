@@ -20,6 +20,10 @@ namespace CryingOnion.MultiplayerTest
         private readonly int textureProperty = Shader.PropertyToID("_BaseMap");
 
         private readonly SyncVar<ushort> playerHealth = new(100);
+        private readonly SyncVar<ushort> playerMaxHealth = new(100);
+
+        public SyncVar<ushort> PlayerHealth => playerHealth;
+        public SyncVar<ushort> PlayerMaxHealth => playerMaxHealth;
 
         [field: Header("Base Setup")] [field: SerializeField]
         public NetworkPlayerConfig NetworkPlayerConfig { get; private set; }
