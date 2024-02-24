@@ -65,7 +65,8 @@ namespace FishNet.Discovery
 		/// <summary>
 		/// Used to cancel the search or advertising.
 		/// </summary>
-		private CancellationTokenSource _cancellationTokenSource;
+		private CancellationTokenSource _cancellationAdvertisingTokenSource;
+		private CancellationTokenSource _cancellationSearchingTokenSource;
 
 		/// <summary>
 		/// Called when a server is found.
@@ -184,9 +185,25 @@ namespace FishNet.Discovery
 				return;
 			}
 
-			_cancellationTokenSource = new CancellationTokenSource();
+			_cancellationAdvertisingTokenSource = new CancellationTokenSource();
 
-			AdvertiseServerAsync(_cancellationTokenSource.Token).ConfigureAwait(false);
+			AdvertiseServerAsync(_cancellationAdvertisingTokenSource.Token).ConfigureAwait(false);
+		}
+		
+		public void StopAdvertising()
+		{
+			if (_cancellationAdvertisingTokenSource == null)
+			{
+				LogWarning("Not advertising.");
+
+				return;
+			}
+
+			_cancellationAdvertisingTokenSource.Cancel();
+
+			_cancellationAdvertisingTokenSource.Dispose();
+
+			_cancellationAdvertisingTokenSource = null;
 		}
 
 		/// <summary>
@@ -201,9 +218,25 @@ namespace FishNet.Discovery
 				return;
 			}
 
-			_cancellationTokenSource = new CancellationTokenSource();
+			_cancellationSearchingTokenSource = new CancellationTokenSource();
 
-			SearchForServersAsync(_cancellationTokenSource.Token).ConfigureAwait(false);
+			SearchForServersAsync(_cancellationSearchingTokenSource.Token).ConfigureAwait(false);
+		}
+		
+		public void StopSearching()
+		{
+			if (_cancellationSearchingTokenSource == null)
+			{
+				LogWarning("Not searching.");
+
+				return;
+			}
+
+			_cancellationSearchingTokenSource.Cancel();
+
+			_cancellationSearchingTokenSource.Dispose();
+
+			_cancellationSearchingTokenSource = null;
 		}
 
 		/// <summary>
@@ -211,20 +244,10 @@ namespace FishNet.Discovery
 		/// </summary>
 		public void StopSearchingOrAdvertising()
 		{
-			if (_cancellationTokenSource == null)
-			{
-				LogWarning("Not searching or advertising.");
-
-				return;
-			}
-
-			_cancellationTokenSource.Cancel();
-
-			_cancellationTokenSource.Dispose();
-
-			_cancellationTokenSource = null;
+			StopSearching();
+			StopAdvertising();
 		}
-
+		
 		/// <summary>
 		/// Advertises the server on the local network.
 		/// </summary>

@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 public class HealthView : MonoBehaviour
 {
+    [SerializeField] private Transform barContainer;
     [SerializeField] private Image healthBar;
     [SerializeField] private TextMeshProUGUI healthText;
     [SerializeField] private NetworkPlayerController networkPlayerController;
@@ -23,7 +24,7 @@ public class HealthView : MonoBehaviour
     private void LateUpdate()
     {
         if (mainCam)
-            transform.rotation = Quaternion.LookRotation(mainCam.transform.forward);
+            barContainer.rotation = Quaternion.LookRotation(mainCam.transform.forward);
     }
 
     private void OnDestroy()

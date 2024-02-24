@@ -86,10 +86,9 @@ namespace CryingOnion.MultiplayerTest
         {
             if (!base.IsOwner) return;
 
-            freeLookCamera.Follow = cameraTarget;
-            freeLookCamera.LookAt = cameraTarget;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            freeLookCamera.enabled = false;
+            freeLookCamera.Follow = null;
+            freeLookCamera.LookAt = null;
         }
 
         private void OnDestroy()
@@ -141,12 +140,6 @@ namespace CryingOnion.MultiplayerTest
 
             // The necessary data is created to replicate the character's movement
             md = new MoveData(direction, Input.GetButton("Jump"), Input.GetKey(KeyCode.LeftShift), Input.GetButton("Fire1"));
-
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-            }
         }
 
         /// <summary>
