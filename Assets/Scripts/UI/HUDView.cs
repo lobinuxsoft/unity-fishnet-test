@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net;
@@ -9,6 +8,10 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+
+/// <summary>
+/// This class is responsible for the functionality of visual controls such as requesting everything related to connections.
+/// </summary>
 public class HUDView : MonoBehaviour
 {
     private const string SERVER = "Server";
@@ -163,7 +166,7 @@ public class HUDView : MonoBehaviour
                 break;
         }
     }
-    
+
     private void OnClientConnectionState(ClientConnectionStateArgs client)
     {
         switch (client.ConnectionState)

@@ -97,6 +97,9 @@ namespace CryingOnion.MultiplayerTest
                 InstanceFinder.TimeManager.OnTick -= OnTimeManagerTick;
         }
 
+        /// <summary>
+        /// This function is responsible for performing each server tick, it works the same as Unity's Update function.
+        /// </summary>
         private void OnTimeManagerTick()
         {
             if (base.IsOwner)
@@ -108,6 +111,7 @@ namespace CryingOnion.MultiplayerTest
                 if (TimeManager.Tick % 3 == 0 && animator.GetFloat(attackTimeHash) > 0.5f)
                     Attack();
 
+                // When health reaches 0 the player disconnects, this decision was made due to lack of time.
                 if (playerHealth.Value == ushort.MinValue)
                     NetworkManager.ClientManager.StopConnection();
             }
@@ -189,6 +193,9 @@ namespace CryingOnion.MultiplayerTest
             transform.rotation = rd.Rotation;
         }
 
+        /// <summary>
+        /// This function is responsible for sending a message to the server to carry out the attack.
+        /// </summary>
         [Client]
         private void Attack()
         {
@@ -196,11 +203,15 @@ namespace CryingOnion.MultiplayerTest
             ServerAttack(pt);
         }
 
+        /// <summary>
+        /// This function is responsible for carrying out everything related to the attack and modifies the SyncVar.
+        /// </summary>
         [ServerRpc]
         private void ServerAttack(PreciseTick pt)
         {
             RollbackManager.Rollback(pt, RollbackPhysicsType.Physics, IsOwner);
             Collider[] colliders = new Collider[10];
+            
             int amount = Physics.OverlapSphereNonAlloc(transform.position + transform.up * 0.5f, 1f, colliders, NetworkPlayerConfig.AttackLayerMask);
 
             for (int i = 0; i < amount; i++)

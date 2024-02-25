@@ -3,6 +3,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// This class is responsible for viewing the player's health.
+/// </summary>
 public class HealthView : MonoBehaviour
 {
     [SerializeField] private Transform barContainer;
